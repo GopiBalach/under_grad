@@ -202,6 +202,43 @@ def init_database():
                         timestamp DATETIME NOT NULL
                     )
                 """)
+                # technical events table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS technical_events (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        event_name VARCHAR(255) NOT NULL,
+                        event_date DATE NOT NULL,
+                        description TEXT,
+                        venue VARCHAR(255),
+                        organizer VARCHAR(255),
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                # exam patterns table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS exam_patterns (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        exam_name VARCHAR(255) NOT NULL,
+                        pattern_details TEXT NOT NULL,
+                        syllabus TEXT,
+                        duration VARCHAR(100),
+                        total_marks INT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                # companies table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS companies (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        company_name VARCHAR(255) NOT NULL,
+                        industry VARCHAR(255),
+                        required_skills TEXT,
+                        min_cgpa FLOAT,
+                        package_offered VARCHAR(100),
+                        job_location VARCHAR(255),
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
             connection.commit()
         except Exception as e:
             st.error(f"Error initializing database: {e}")
@@ -560,59 +597,105 @@ def get_feedback_data() -> pd.DataFrame:
 # Pages
 # ==============================
 def auth_page():
-    st.title("User Registration / Login")
+    # Parul theme styling for student login
+    st.markdown("""
+    <style>
+    .student-login-container {
+        background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        margin: 2rem 0;
+    }
+    .student-header {
+        text-align: center;
+        color: white;
+        margin-bottom: 2rem;
+    }
+    .parul-student-logo {
+        text-align: center;
+        font-size: 3rem;
+        color: white;
+        margin-bottom: 1rem;
+    }
+    .tab-container {
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     if bcrypt is None:
         st.error("`bcrypt` is not installed. Please install it: `pip install bcrypt`")
         st.stop()
 
-    option = st.radio("Choose an option", ["Register", "Login"])
+    st.markdown('<div class="parul-student-logo">🎓</div>', unsafe_allow_html=True)
+    st.markdown('<div class="student-header"><h1>👨‍🎓 Student Portal</h1><h3>Parul University</h3></div>', unsafe_allow_html=True)
 
     connection = get_database_connection()
     if not connection:
         st.stop()
 
-    if option == "Register":
-        reg_no = st.text_input("Registration Number")
-        name = st.text_input("Name")
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-        cgpa = st.number_input("CGPA", min_value=0.0, max_value=10.0, step=0.1)
-
-        if st.button("Register"):
-            if reg_no and name and email and password:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="student-login-container">', unsafe_allow_html=True)
+        
+        tab1, tab2 = st.tabs(["🔑 Login", "📝 Register"])
+        
+        with tab1:
+            st.markdown("### 🚪 Student Login")
+            email = st.text_input("📧 Email", placeholder="Enter your email")
+            password = st.text_input("🔒 Password", type="password", placeholder="Enter your password")
+            
+            if st.button("🚀 Login", use_container_width=True):
                 try:
-                    hashed_pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
                     with connection.cursor() as cursor:
-                        cursor.execute("""
-                            INSERT INTO students (registration_number, name, email, password, cgpa)
-                            VALUES (%s, %s, %s, %s, %s)
-                        """, (reg_no, name, email, hashed_pw, cgpa))
-                    connection.commit()
-                    st.success("Registration successful! Please log in.")
+                        cursor.execute("SELECT id, name, password FROM students WHERE email=%s", (email,))
+                        row = cursor.fetchone()
+                    if row and bcrypt.checkpw(password.encode(), row[2].encode()):
+                        st.session_state["student_id"] = row[0]
+                        st.session_state["student_name"] = row[1]
+                        st.success("🎉 Login successful!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid email or password.")
                 except Exception as e:
-                    st.error(f"Error: {e}")
-            else:
-                st.warning("Please fill all fields.")
-
-    elif option == "Login":
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-
-        if st.button("Login"):
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT id, name, password FROM students WHERE email=%s", (email,))
-                    row = cursor.fetchone()
-                if row and bcrypt.checkpw(password.encode(), row[2].encode()):
-                    st.session_state["student_id"] = row[0]
-                    st.session_state["student_name"] = row[1]
-                    st.success("Login successful!")
-                    st.rerun()
+                    st.error(f"Login error: {e}")
+        
+        with tab2:
+            st.markdown("### 📋 Student Registration")
+            reg_no = st.text_input("🆔 Registration Number", placeholder="Enter registration number")
+            name = st.text_input("👤 Full Name", placeholder="Enter your full name")
+            email = st.text_input("📧 Email Address", placeholder="Enter your email")
+            password = st.text_input("🔒 Password", type="password", placeholder="Create a password")
+            cgpa = st.number_input("📊 CGPA", min_value=0.0, max_value=10.0, step=0.1, help="Enter your current CGPA")
+            
+            if st.button("📝 Register", use_container_width=True):
+                if reg_no and name and email and password:
+                    try:
+                        hashed_pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+                        with connection.cursor() as cursor:
+                            cursor.execute("""
+                                INSERT INTO students (registration_number, name, email, password, cgpa)
+                                VALUES (%s, %s, %s, %s, %s)
+                            """, (reg_no, name, email, hashed_pw, cgpa))
+                        connection.commit()
+                        st.success("🎉 Registration successful! Please log in.")
+                    except Exception as e:
+                        st.error(f"❌ Error: {e}")
                 else:
-                    st.error("Invalid email or password.")
-            except Exception as e:
-                st.error(f"Login error: {e}")
+                    st.warning("⚠️ Please fill all fields.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div style="text-align: center; margin-top: 1rem; color: #666;">
+            <small>🎓 Empowering Students | Parul University</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
     connection.close()
 
 def user_page():
@@ -815,17 +898,75 @@ def about_page():
     st.write("We value your privacy. Your resume data is used only for analysis. Admin dashboard aggregates anonymized analytics.")
 
 def admin_login():
-    st.title("Admin Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        if username == "Parul" and password == "parul@1234":
-            st.session_state.admin_logged_in = True
-            st.success("Logged in successfully!")
-            st.experimental_rerun()
-        else:
-            st.error("Invalid username or password")
+    # Parul theme styling
+    st.markdown("""
+    <style>
+    .login-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        margin: 2rem 0;
+    }
+    .login-header {
+        text-align: center;
+        color: white;
+        margin-bottom: 2rem;
+    }
+    .parul-logo {
+        text-align: center;
+        font-size: 3rem;
+        color: #FF6B35;
+        margin-bottom: 1rem;
+    }
+    .stTextInput > div > div > input {
+        background-color: rgba(255,255,255,0.1);
+        border: 2px solid #FF6B35;
+        border-radius: 10px;
+        color: black;
+    }
+    .stButton > button {
+        background: linear-gradient(45deg, #FF6B35, #F7931E);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0.5rem 2rem;
+        font-weight: bold;
+        width: 100%;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<div class="parul-logo">🏛️</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-header"><h1>🛡️ Admin Portal</h1><h3>Parul University</h3></div>', unsafe_allow_html=True)
+    
+    with st.container():
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown('<div class="login-container">', unsafe_allow_html=True)
+            
+            username = st.text_input("👤 Admin Username", placeholder="Enter admin username")
+            password = st.text_input("🔒 Admin Password", type="password", placeholder="Enter admin password")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            if st.button("🚀 Login as Admin"):
+                admin_user = os.getenv('ADMIN_USERNAME', 'admin')
+                admin_pass = os.getenv('ADMIN_PASSWORD', 'Parul@1234')
+                if username == admin_user and password == admin_pass:
+                    st.session_state.admin_logged_in = True
+                    st.success("🎉 Admin logged in successfully!")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid admin credentials")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div style="text-align: center; margin-top: 1rem; color: #666;">
+                <small>🔐 Secure Admin Access | Parul University</small>
+            </div>
+            """, unsafe_allow_html=True)
 
 def show_admin_dashboard():
     st.title("Admin Dashboard")
@@ -850,13 +991,13 @@ def show_admin_dashboard():
     if st.button("Logout (Admin)"):
         st.session_state.admin_logged_in = False
         st.success("Admin logged out.")
-        st.experimental_rerun()
+        st.rerun()
 
 def admin_page():
     if not st.session_state.get('admin_logged_in', False):
         admin_login()
     else:
-        show_admin_dashboard()
+        admin_dashboard_home()
 
 def show_analytics():
     user_data = get_user_data()
@@ -915,6 +1056,490 @@ def show_analytics():
     else:
         st.info("No feedback ratings data.")
 
+# ==============================
+# Student Dashboard Functions
+# ==============================
+def student_dashboard():
+    # Parul theme styling for student dashboard
+    st.markdown("""
+    <style>
+    .student-dashboard-header {
+        background: linear-gradient(90deg, #FF6B35 0%, #F7931E 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(255,107,53,0.3);
+    }
+    .welcome-text {
+        font-size: 1.2rem;
+        margin-top: 0.5rem;
+        opacity: 0.9;
+    }
+    .metric-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1rem;
+        border-radius: 10px;
+        color: white;
+        text-align: center;
+        margin: 0.5rem;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .action-section {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        margin: 1rem 0;
+    }
+    .action-title {
+        color: white;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Welcome header
+    st.markdown(f'''
+    <div class="student-dashboard-header">
+        <h1>🎓 Student Dashboard</h1>
+        <div class="welcome-text">Welcome back, {st.session_state.get('student_name', 'Student')}!</div>
+        <div style="margin-top: 0.5rem; font-size: 0.9rem;">🏛️ Parul University</div>
+    </div>
+    ''', unsafe_allow_html=True)
+    
+    # Metrics section
+    st.markdown("### 📊 Your Progress")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("📄 Profile Completion", "85%", delta="+5%")
+    with col2:
+        st.metric("🎆 Events Attended", "3", delta="+1")
+    with col3:
+        st.metric("🏢 Companies Matched", "12", delta="+3")
+    
+    # Quick Actions section
+    st.markdown('<div class="action-section">', unsafe_allow_html=True)
+    st.markdown('<h3 class="action-title">🚀 Quick Actions</h3>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📄 Analyze Resume", use_container_width=True):
+            st.info("🔍 Navigate to Resume Analysis to get detailed insights!")
+        if st.button("🏢 View Matched Companies", use_container_width=True):
+            st.info("🎯 Check companies that match your profile!")
+    with col2:
+        if st.button("📊 View Placement Stats", use_container_width=True):
+            st.info("📈 Explore placement statistics and trends!")
+        if st.button("📚 Check Exam Patterns", use_container_width=True):
+            st.info("📝 Access exam patterns and preparation materials!")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Recent activity section
+    st.markdown("### 🕒 Recent Activity")
+    with st.expander("📊 Recent Resume Analysis"):
+        st.write("📅 Last analyzed: 2 days ago")
+        st.write("🎯 Score: 78/100")
+        st.write("📈 Improvement: +5 points")
+    
+    with st.expander("🎆 Upcoming Events"):
+        st.write("📅 Tech Talk: AI in Industry - Tomorrow 2:00 PM")
+        st.write("📅 Placement Drive: TCS - Next Week")
+        st.write("📅 Workshop: Resume Building - Friday 10:00 AM")
+
+def update_profile_page():
+    st.title("Update Profile")
+    
+    connection = get_database_connection()
+    if not connection:
+        st.error("Database connection failed")
+        return
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM students WHERE id = %s", (st.session_state['student_id'],))
+            student = cursor.fetchone()
+            
+        if student:
+            st.subheader("Personal Information")
+            name = st.text_input("Name", value=student[2])
+            email = st.text_input("Email", value=student[3])
+            cgpa = st.number_input("CGPA", min_value=0.0, max_value=10.0, value=float(student[5] or 0), step=0.1)
+            
+            st.subheader("Additional Information")
+            phone = st.text_input("Phone Number")
+            branch = st.selectbox("Branch", ["Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil"])
+            year = st.selectbox("Year", ["1st Year", "2nd Year", "3rd Year", "4th Year"])
+            skills = st.text_area("Skills (comma separated)")
+            
+            if st.button("Update Profile"):
+                try:
+                    with connection.cursor() as cursor:
+                        cursor.execute("""
+                            UPDATE students SET name=%s, email=%s, cgpa=%s WHERE id=%s
+                        """, (name, email, cgpa, st.session_state['student_id']))
+                    connection.commit()
+                    st.success("Profile updated successfully!")
+                    st.session_state['student_name'] = name
+                except Exception as e:
+                    st.error(f"Error updating profile: {e}")
+    finally:
+        connection.close()
+
+def view_technical_events():
+    st.title("Technical Events")
+    
+    connection = get_database_connection()
+    if not connection:
+        st.error("Database connection failed")
+        return
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM technical_events ORDER BY event_date DESC")
+            events = cursor.fetchall()
+            
+        if events:
+            for event in events:
+                with st.expander(f"📅 {event[1]} - {event[2]}"):
+                    st.write(f"**Description:** {event[3]}")
+                    st.write(f"**Venue:** {event[4]}")
+                    st.write(f"**Organizer:** {event[5]}")
+        else:
+            st.info("No technical events available at the moment.")
+    finally:
+        connection.close()
+
+def view_placement_statistics():
+    st.title("Placement Statistics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Placements", "450")
+    with col2:
+        st.metric("Average Package", "₹6.5 LPA")
+    with col3:
+        st.metric("Highest Package", "₹25 LPA")
+    with col4:
+        st.metric("Placement Rate", "85%")
+    
+    st.subheader("Branch-wise Placement Statistics")
+    data = {
+        'Branch': ['CSE', 'IT', 'ECE', 'ME', 'CE'],
+        'Placed': [120, 95, 80, 75, 60],
+        'Average Package': [7.2, 6.8, 6.0, 5.5, 5.0]
+    }
+    df = pd.DataFrame(data)
+    st.dataframe(df)
+
+def view_exam_patterns():
+    st.title("Exam Patterns")
+    
+    connection = get_database_connection()
+    if not connection:
+        st.error("Database connection failed")
+        return
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM exam_patterns")
+            patterns = cursor.fetchall()
+            
+        if patterns:
+            for pattern in patterns:
+                with st.expander(f"📝 {pattern[1]}"):
+                    st.write(f"**Pattern Details:** {pattern[2]}")
+                    st.write(f"**Syllabus:** {pattern[3]}")
+                    st.write(f"**Duration:** {pattern[4]}")
+                    st.write(f"**Total Marks:** {pattern[5]}")
+        else:
+            st.info("No exam patterns available.")
+    finally:
+        connection.close()
+
+def view_matched_companies():
+    st.title("Matched Companies")
+    
+    connection = get_database_connection()
+    if not connection:
+        st.error("Database connection failed")
+        return
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT cgpa FROM students WHERE id = %s", (st.session_state['student_id'],))
+            student_cgpa = cursor.fetchone()[0] or 0
+            
+            cursor.execute("SELECT * FROM companies WHERE min_cgpa <= %s", (student_cgpa,))
+            companies = cursor.fetchall()
+            
+        if companies:
+            st.write(f"Companies matching your CGPA ({student_cgpa}):")
+            for company in companies:
+                with st.expander(f"🏢 {company[1]}"):
+                    st.write(f"**Industry:** {company[2]}")
+                    st.write(f"**Required Skills:** {company[3]}")
+                    st.write(f"**Minimum CGPA:** {company[4]}")
+                    st.write(f"**Package:** {company[5]}")
+                    st.write(f"**Location:** {company[6]}")
+        else:
+            st.info("No companies match your current profile. Consider improving your CGPA or skills.")
+    finally:
+        connection.close()
+
+# ==============================
+# Admin Dashboard Functions
+# ==============================
+def admin_dashboard_home():
+    # Parul theme colors
+    st.markdown("""
+    <style>
+    .admin-header {
+        background: linear-gradient(90deg, #FF6B35 0%, #F7931E 100%);
+        padding: 1rem;
+        border-radius: 10px;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1rem;
+        border-radius: 10px;
+        color: white;
+        text-align: center;
+        margin: 0.5rem;
+    }
+    .action-button {
+        background: linear-gradient(45deg, #FF6B35, #F7931E);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 5px;
+        margin: 0.2rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<div class="admin-header"><h1>🛡️ Admin Dashboard</h1><p>Welcome to Parul University Admin Panel</p></div>', unsafe_allow_html=True)
+    
+
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Students", "1,250", delta="+50")
+    with col2:
+        st.metric("Active Events", "5", delta="+2")
+    with col3:
+        st.metric("Registered Companies", "45", delta="+8")
+    with col4:
+        st.metric("Exam Patterns", "12", delta="+1")
+    
+    st.markdown("### 🚀 Quick Actions")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📅 Add New Event", use_container_width=True):
+            st.info("Navigate to 'Manage Technical Events'")
+        if st.button("🏢 Add New Company", use_container_width=True):
+            st.info("Navigate to 'Manage Company Data'")
+    with col2:
+        if st.button("📝 Add Exam Pattern", use_container_width=True):
+            st.info("Navigate to 'Manage Exam Patterns'")
+        if st.button("📊 View Analytics", use_container_width=True):
+            st.info("Navigate to 'User Analytics'")
+
+def manage_technical_events():
+    st.title("Manage Technical Events")
+    
+    tab1, tab2 = st.tabs(["Add Event", "View/Edit Events"])
+    
+    with tab1:
+        st.subheader("Add New Technical Event")
+        event_name = st.text_input("Event Name")
+        event_date = st.date_input("Event Date")
+        description = st.text_area("Description")
+        venue = st.text_input("Venue")
+        organizer = st.text_input("Organizer")
+        
+        if st.button("Add Event"):
+            if event_name and event_date:
+                connection = get_database_connection()
+                if connection:
+                    try:
+                        with connection.cursor() as cursor:
+                            cursor.execute("""
+                                INSERT INTO technical_events (event_name, event_date, description, venue, organizer)
+                                VALUES (%s, %s, %s, %s, %s)
+                            """, (event_name, event_date, description, venue, organizer))
+                        connection.commit()
+                        st.success("Event added successfully!")
+                    except Exception as e:
+                        st.error(f"Error adding event: {e}")
+                    finally:
+                        connection.close()
+            else:
+                st.warning("Please fill in required fields.")
+    
+    with tab2:
+        st.subheader("Existing Events")
+        connection = get_database_connection()
+        if connection:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT * FROM technical_events ORDER BY event_date DESC")
+                    events = cursor.fetchall()
+                
+                if events:
+                    for event in events:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"**{event[1]}** - {event[2]}")
+                            st.write(f"{event[3]}")
+                        with col2:
+                            if st.button(f"Delete", key=f"del_{event[0]}"):
+                                try:
+                                    with connection.cursor() as cursor:
+                                        cursor.execute("DELETE FROM technical_events WHERE id = %s", (event[0],))
+                                    connection.commit()
+                                    st.success("Event deleted!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error deleting event: {e}")
+                        st.divider()
+                else:
+                    st.info("No events found.")
+            finally:
+                connection.close()
+
+def manage_exam_patterns():
+    st.title("Manage Exam Patterns")
+    
+    tab1, tab2 = st.tabs(["Add Pattern", "View/Edit Patterns"])
+    
+    with tab1:
+        st.subheader("Add New Exam Pattern")
+        exam_name = st.text_input("Exam Name")
+        pattern_details = st.text_area("Pattern Details")
+        syllabus = st.text_area("Syllabus")
+        duration = st.text_input("Duration")
+        total_marks = st.number_input("Total Marks", min_value=0, step=1)
+        
+        if st.button("Add Pattern"):
+            if exam_name and pattern_details:
+                connection = get_database_connection()
+                if connection:
+                    try:
+                        with connection.cursor() as cursor:
+                            cursor.execute("""
+                                INSERT INTO exam_patterns (exam_name, pattern_details, syllabus, duration, total_marks)
+                                VALUES (%s, %s, %s, %s, %s)
+                            """, (exam_name, pattern_details, syllabus, duration, total_marks))
+                        connection.commit()
+                        st.success("Exam pattern added successfully!")
+                    except Exception as e:
+                        st.error(f"Error adding pattern: {e}")
+                    finally:
+                        connection.close()
+            else:
+                st.warning("Please fill in required fields.")
+    
+    with tab2:
+        st.subheader("Existing Patterns")
+        connection = get_database_connection()
+        if connection:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT * FROM exam_patterns")
+                    patterns = cursor.fetchall()
+                
+                if patterns:
+                    for pattern in patterns:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"**{pattern[1]}**")
+                            st.write(f"Duration: {pattern[4]} | Marks: {pattern[5]}")
+                        with col2:
+                            if st.button(f"Delete", key=f"del_pattern_{pattern[0]}"):
+                                try:
+                                    with connection.cursor() as cursor:
+                                        cursor.execute("DELETE FROM exam_patterns WHERE id = %s", (pattern[0],))
+                                    connection.commit()
+                                    st.success("Pattern deleted!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error deleting pattern: {e}")
+                        st.divider()
+                else:
+                    st.info("No exam patterns found.")
+            finally:
+                connection.close()
+
+def manage_company_data():
+    st.title("Manage Company Data")
+    
+    tab1, tab2 = st.tabs(["Add Company", "View/Edit Companies"])
+    
+    with tab1:
+        st.subheader("Add New Company")
+        company_name = st.text_input("Company Name")
+        industry = st.text_input("Industry")
+        required_skills = st.text_area("Required Skills")
+        min_cgpa = st.number_input("Minimum CGPA", min_value=0.0, max_value=10.0, step=0.1)
+        package_offered = st.text_input("Package Offered")
+        job_location = st.text_input("Job Location")
+        
+        if st.button("Add Company"):
+            if company_name and industry:
+                connection = get_database_connection()
+                if connection:
+                    try:
+                        with connection.cursor() as cursor:
+                            cursor.execute("""
+                                INSERT INTO companies (company_name, industry, required_skills, min_cgpa, package_offered, job_location)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (company_name, industry, required_skills, min_cgpa, package_offered, job_location))
+                        connection.commit()
+                        st.success("Company added successfully!")
+                    except Exception as e:
+                        st.error(f"Error adding company: {e}")
+                    finally:
+                        connection.close()
+            else:
+                st.warning("Please fill in required fields.")
+    
+    with tab2:
+        st.subheader("Existing Companies")
+        connection = get_database_connection()
+        if connection:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT * FROM companies")
+                    companies = cursor.fetchall()
+                
+                if companies:
+                    for company in companies:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"**{company[1]}** - {company[2]}")
+                            st.write(f"Min CGPA: {company[4]} | Package: {company[5]}")
+                        with col2:
+                            if st.button(f"Delete", key=f"del_company_{company[0]}"):
+                                try:
+                                    with connection.cursor() as cursor:
+                                        cursor.execute("DELETE FROM companies WHERE id = %s", (company[0],))
+                                    connection.commit()
+                                    st.success("Company deleted!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error deleting company: {e}")
+                        st.divider()
+                else:
+                    st.info("No companies found.")
+            finally:
+                connection.close()
+
 def dossier_guide_page():
     st.title("Undergrad Dossier – Guided Flow")
     steps = [
@@ -962,47 +1587,141 @@ def main():
         latlng, city, state, country = get_geolocation()
         device_info = get_device_info()
 
-        st.sidebar.title("Undergrad Dossier")
+        # Parul theme styling for sidebar
+        st.markdown("""
+        <style>
+        .sidebar .sidebar-content {
+            background: linear-gradient(180deg, #FF6B35 0%, #F7931E 100%);
+        }
+        .stSidebar > div:first-child {
+            background: linear-gradient(180deg, #FF6B35 0%, #F7931E 100%);
+        }
+        .sidebar-title {
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .parul-brand {
+            text-align: center;
+            color: white;
+            padding: 0.5rem;
+            font-size: 0.9rem;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.sidebar.markdown('<div class="sidebar-title">🏛️ UNDERGRAD DOSSIER</div>', unsafe_allow_html=True)
+        st.sidebar.markdown('<div class="parul-brand">Parul University</div>', unsafe_allow_html=True)
+        
         image_path = "c:/Users/gopib/Desktop/mahesh/AI_Resume_Analyzer/resum.jpg"
         if os.path.exists(image_path):
             st.sidebar.image(image_path, width=200)
         else:
-            st.sidebar.info("No sidebar image found.")
+            st.sidebar.markdown("🎓 Student Portal")
 
-        # If user not logged in -> show auth page only
-        if "student_id" not in st.session_state:
-            st.sidebar.info("Please register or log in to continue.")
-            auth_page()
-            return
+        # Navigation - Admin is always available, others require student login
+        if "student_id" not in st.session_state and "admin_logged_in" not in st.session_state:
+            # Show limited navigation for non-logged in users
+            st.sidebar.markdown("### 🚀 Welcome to Undergrad Dossier")
+            st.sidebar.markdown("Please choose your login type:")
+            pages = ["🎓 Student Login", "🛡️ Admin Login", "📚 About"]
+            page = st.sidebar.radio("Select Portal", pages)
+            
+            if page == "🎓 Student Login":
+                auth_page()
+                return
+            elif page == "🛡️ Admin Login":
+                admin_page()
+                return
+            elif page == "📚 About":
+                about_page()
+                return
+        
+        # Student logged in
+        elif "student_id" in st.session_state:
+            st.sidebar.success(f"Logged in as: {st.session_state.get('student_name','Student')}")
+            st.sidebar.text(f"Session ID: {st.session_state.session_token[:8]}...")
+            if city and country:
+                st.sidebar.text(f"Location: {city}, {country}")
+            
+            pages = ["Dashboard", "Update Profile", "Resume Analysis", "Technical Events", "Placement Statistics", "Exam Patterns", "Matched Companies", "Find Jobs", "Feedback", "About"]
+            page = st.sidebar.radio("Student Navigation", pages)
+        
+        # Admin logged in
+        elif st.session_state.get("admin_logged_in", False):
+            st.sidebar.success("Logged in as: Admin")
+            pages = ["Admin Dashboard", "Manage Technical Events", "Manage Exam Patterns", "Manage Company Data", "User Analytics", "About"]
+            page = st.sidebar.radio("Admin Navigation", pages)
+            
+            if page == "Admin Dashboard":
+                admin_dashboard_home()
+                return
+            elif page == "Manage Technical Events":
+                manage_technical_events()
+                return
+            elif page == "Manage Exam Patterns":
+                manage_exam_patterns()
+                return
+            elif page == "Manage Company Data":
+                manage_company_data()
+                return
+            elif page == "User Analytics":
+                show_admin_dashboard()
+                return
 
-        # Logged-in UI
-        st.sidebar.success(f"Logged in as: {st.session_state.get('student_name','Student')}")
-        st.sidebar.text(f"Session ID: {st.session_state.session_token[:8]}...")
-        if city and country:
-            st.sidebar.text(f"Location: {city}, {country}")
-
-        pages = ["Dossier Guide", "User", "Find Jobs", "Feedback", "About", "Admin"]
-        page = st.sidebar.radio("Navigation", pages)
-
-        if page == "Dossier Guide":
-            dossier_guide_page()
-        elif page == "User":
-            user_page()
-        elif page == "Find Jobs":
-            find_jobs_page()
-        elif page == "Feedback":
-            feedback_page()
-        elif page == "About":
-            about_page()
-        elif page == "Admin":
-            admin_page()
+        # Handle navigation for logged-in students
+        if "student_id" in st.session_state:
+            if page == "Dashboard":
+                student_dashboard()
+            elif page == "Update Profile":
+                update_profile_page()
+            elif page == "Resume Analysis":
+                user_page()
+            elif page == "Technical Events":
+                view_technical_events()
+            elif page == "Placement Statistics":
+                view_placement_statistics()
+            elif page == "Exam Patterns":
+                view_exam_patterns()
+            elif page == "Matched Companies":
+                view_matched_companies()
+            elif page == "Find Jobs":
+                find_jobs_page()
+            elif page == "Feedback":
+                feedback_page()
+            elif page == "About":
+                about_page()
 
         st.sidebar.markdown("---")
-        st.sidebar.info("© 2025 UNDERGRADE DOSSIER. Designed by Parul_University_Students.")
+        st.sidebar.markdown("""
+        <div style="text-align: center; color: white; padding: 1rem; background: rgba(0,0,0,0.1); border-radius: 10px;">
+            <div style="font-size: 0.8rem; margin-bottom: 0.5rem;">🎆 © 2025 UNDERGRADE DOSSIER</div>
+            <div style="font-size: 0.7rem; opacity: 0.8;">Designed by Parul University Students</div>
+            <div style="font-size: 0.7rem; margin-top: 0.5rem;">🚀 Empowering Future Leaders</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        if st.sidebar.button("Logout"):
-            st.session_state.clear()
-            st.rerun()
+        # Show appropriate logout button with styling
+        if "student_id" in st.session_state:
+            st.sidebar.markdown("---")
+            if st.sidebar.button("🚪 Student Logout", use_container_width=True):
+                # Clear only student session, keep admin if logged in
+                keys_to_remove = [k for k in st.session_state.keys() if k.startswith('student')]
+                for key in keys_to_remove:
+                    del st.session_state[key]
+                st.success("Student logged out successfully! Redirecting to main page...")
+                time.sleep(1)
+                st.rerun()
+        
+        if st.session_state.get("admin_logged_in", False):
+            st.sidebar.markdown("---")
+            if st.sidebar.button("🛡️ Admin Logout", use_container_width=True):
+                st.session_state.admin_logged_in = False
+                st.success("Admin logged out successfully! Redirecting to main page...")
+                time.sleep(1)
+                st.rerun()
 
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
@@ -1010,3 +1729,391 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ==============================
+# Student Dashboard Functions
+# ==============================
+def student_dashboard():
+    st.title("Student Dashboard")
+    st.write(f"Welcome, {st.session_state.get('student_name', 'Student')}!")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Profile Completion", "85%")
+    with col2:
+        st.metric("Events Attended", "3")
+    with col3:
+        st.metric("Companies Matched", "12")
+    
+    st.subheader("Quick Actions")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📄 Analyze Resume"):
+            st.info("Navigate to Resume Analysis")
+        if st.button("🏢 View Matched Companies"):
+            st.info("Navigate to Matched Companies")
+    with col2:
+        if st.button("📊 View Placement Stats"):
+            st.info("Navigate to Placement Statistics")
+        if st.button("📚 Check Exam Patterns"):
+            st.info("Navigate to Exam Patterns")
+
+def update_profile_page():
+    st.title("Update Profile")
+    
+    connection = get_database_connection()
+    if not connection:
+        st.error("Database connection failed")
+        return
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM students WHERE id = %s", (st.session_state['student_id'],))
+            student = cursor.fetchone()
+            
+        if student:
+            st.subheader("Personal Information")
+            name = st.text_input("Name", value=student[2])
+            email = st.text_input("Email", value=student[3])
+            cgpa = st.number_input("CGPA", min_value=0.0, max_value=10.0, value=float(student[5] or 0), step=0.1)
+            
+            st.subheader("Additional Information")
+            phone = st.text_input("Phone Number")
+            branch = st.selectbox("Branch", ["Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil"])
+            year = st.selectbox("Year", ["1st Year", "2nd Year", "3rd Year", "4th Year"])
+            skills = st.text_area("Skills (comma separated)")
+            
+            if st.button("Update Profile"):
+                try:
+                    with connection.cursor() as cursor:
+                        cursor.execute("""
+                            UPDATE students SET name=%s, email=%s, cgpa=%s WHERE id=%s
+                        """, (name, email, cgpa, st.session_state['student_id']))
+                    connection.commit()
+                    st.success("Profile updated successfully!")
+                    st.session_state['student_name'] = name
+                except Exception as e:
+                    st.error(f"Error updating profile: {e}")
+    finally:
+        connection.close()
+
+def view_technical_events():
+    st.title("Technical Events")
+    
+    connection = get_database_connection()
+    if not connection:
+        st.error("Database connection failed")
+        return
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM technical_events ORDER BY event_date DESC")
+            events = cursor.fetchall()
+            
+        if events:
+            for event in events:
+                with st.expander(f"📅 {event[1]} - {event[2]}"):
+                    st.write(f"**Description:** {event[3]}")
+                    st.write(f"**Venue:** {event[4]}")
+                    st.write(f"**Organizer:** {event[5]}")
+        else:
+            st.info("No technical events available at the moment.")
+    finally:
+        connection.close()
+
+def view_placement_statistics():
+    st.title("Placement Statistics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Placements", "450")
+    with col2:
+        st.metric("Average Package", "₹6.5 LPA")
+    with col3:
+        st.metric("Highest Package", "₹25 LPA")
+    with col4:
+        st.metric("Placement Rate", "85%")
+    
+    st.subheader("Branch-wise Placement Statistics")
+    data = {
+        'Branch': ['CSE', 'IT', 'ECE', 'ME', 'CE'],
+        'Placed': [120, 95, 80, 75, 60],
+        'Average Package': [7.2, 6.8, 6.0, 5.5, 5.0]
+    }
+    df = pd.DataFrame(data)
+    st.dataframe(df)
+
+def view_exam_patterns():
+    st.title("Exam Patterns")
+    
+    connection = get_database_connection()
+    if not connection:
+        st.error("Database connection failed")
+        return
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM exam_patterns")
+            patterns = cursor.fetchall()
+            
+        if patterns:
+            for pattern in patterns:
+                with st.expander(f"📝 {pattern[1]}"):
+                    st.write(f"**Pattern Details:** {pattern[2]}")
+                    st.write(f"**Syllabus:** {pattern[3]}")
+                    st.write(f"**Duration:** {pattern[4]}")
+                    st.write(f"**Total Marks:** {pattern[5]}")
+        else:
+            st.info("No exam patterns available.")
+    finally:
+        connection.close()
+
+def view_matched_companies():
+    st.title("Matched Companies")
+    
+    connection = get_database_connection()
+    if not connection:
+        st.error("Database connection failed")
+        return
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT cgpa FROM students WHERE id = %s", (st.session_state['student_id'],))
+            student_cgpa = cursor.fetchone()[0] or 0
+            
+            cursor.execute("SELECT * FROM companies WHERE min_cgpa <= %s", (student_cgpa,))
+            companies = cursor.fetchall()
+            
+        if companies:
+            st.write(f"Companies matching your CGPA ({student_cgpa}):")
+            for company in companies:
+                with st.expander(f"🏢 {company[1]}"):
+                    st.write(f"**Industry:** {company[2]}")
+                    st.write(f"**Required Skills:** {company[3]}")
+                    st.write(f"**Minimum CGPA:** {company[4]}")
+                    st.write(f"**Package:** {company[5]}")
+                    st.write(f"**Location:** {company[6]}")
+        else:
+            st.info("No companies match your current profile. Consider improving your CGPA or skills.")
+    finally:
+        connection.close()
+
+# ==============================
+# Admin Dashboard Functions
+# ==============================
+def admin_dashboard_home():
+    st.title("Admin Dashboard")
+    st.write("Welcome to the Admin Panel")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Students", "1,250")
+    with col2:
+        st.metric("Active Events", "5")
+    with col3:
+        st.metric("Registered Companies", "45")
+    with col4:
+        st.metric("Exam Patterns", "12")
+    
+    st.subheader("Quick Actions")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📅 Add New Event"):
+            st.info("Navigate to 'Manage Technical Events'")
+        if st.button("🏢 Add New Company"):
+            st.info("Navigate to 'Manage Company Data'")
+    with col2:
+        if st.button("📝 Add Exam Pattern"):
+            st.info("Navigate to 'Manage Exam Patterns'")
+        if st.button("📊 View Analytics"):
+            st.info("Navigate to 'User Analytics'")
+
+def manage_technical_events():
+    st.title("Manage Technical Events")
+    
+    tab1, tab2 = st.tabs(["Add Event", "View/Edit Events"])
+    
+    with tab1:
+        st.subheader("Add New Technical Event")
+        event_name = st.text_input("Event Name")
+        event_date = st.date_input("Event Date")
+        description = st.text_area("Description")
+        venue = st.text_input("Venue")
+        organizer = st.text_input("Organizer")
+        
+        if st.button("Add Event"):
+            if event_name and event_date:
+                connection = get_database_connection()
+                if connection:
+                    try:
+                        with connection.cursor() as cursor:
+                            cursor.execute("""
+                                INSERT INTO technical_events (event_name, event_date, description, venue, organizer)
+                                VALUES (%s, %s, %s, %s, %s)
+                            """, (event_name, event_date, description, venue, organizer))
+                        connection.commit()
+                        st.success("Event added successfully!")
+                    except Exception as e:
+                        st.error(f"Error adding event: {e}")
+                    finally:
+                        connection.close()
+            else:
+                st.warning("Please fill in required fields.")
+    
+    with tab2:
+        st.subheader("Existing Events")
+        connection = get_database_connection()
+        if connection:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT * FROM technical_events ORDER BY event_date DESC")
+                    events = cursor.fetchall()
+                
+                if events:
+                    for event in events:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"**{event[1]}** - {event[2]}")
+                            st.write(f"{event[3]}")
+                        with col2:
+                            if st.button(f"Delete", key=f"del_{event[0]}"):
+                                try:
+                                    with connection.cursor() as cursor:
+                                        cursor.execute("DELETE FROM technical_events WHERE id = %s", (event[0],))
+                                    connection.commit()
+                                    st.success("Event deleted!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error deleting event: {e}")
+                        st.divider()
+                else:
+                    st.info("No events found.")
+            finally:
+                connection.close()
+
+def manage_exam_patterns():
+    st.title("Manage Exam Patterns")
+    
+    tab1, tab2 = st.tabs(["Add Pattern", "View/Edit Patterns"])
+    
+    with tab1:
+        st.subheader("Add New Exam Pattern")
+        exam_name = st.text_input("Exam Name")
+        pattern_details = st.text_area("Pattern Details")
+        syllabus = st.text_area("Syllabus")
+        duration = st.text_input("Duration")
+        total_marks = st.number_input("Total Marks", min_value=0, step=1)
+        
+        if st.button("Add Pattern"):
+            if exam_name and pattern_details:
+                connection = get_database_connection()
+                if connection:
+                    try:
+                        with connection.cursor() as cursor:
+                            cursor.execute("""
+                                INSERT INTO exam_patterns (exam_name, pattern_details, syllabus, duration, total_marks)
+                                VALUES (%s, %s, %s, %s, %s)
+                            """, (exam_name, pattern_details, syllabus, duration, total_marks))
+                        connection.commit()
+                        st.success("Exam pattern added successfully!")
+                    except Exception as e:
+                        st.error(f"Error adding pattern: {e}")
+                    finally:
+                        connection.close()
+            else:
+                st.warning("Please fill in required fields.")
+    
+    with tab2:
+        st.subheader("Existing Patterns")
+        connection = get_database_connection()
+        if connection:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT * FROM exam_patterns")
+                    patterns = cursor.fetchall()
+                
+                if patterns:
+                    for pattern in patterns:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"**{pattern[1]}**")
+                            st.write(f"Duration: {pattern[4]} | Marks: {pattern[5]}")
+                        with col2:
+                            if st.button(f"Delete", key=f"del_pattern_{pattern[0]}"):
+                                try:
+                                    with connection.cursor() as cursor:
+                                        cursor.execute("DELETE FROM exam_patterns WHERE id = %s", (pattern[0],))
+                                    connection.commit()
+                                    st.success("Pattern deleted!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error deleting pattern: {e}")
+                        st.divider()
+                else:
+                    st.info("No exam patterns found.")
+            finally:
+                connection.close()
+
+def manage_company_data():
+    st.title("Manage Company Data")
+    
+    tab1, tab2 = st.tabs(["Add Company", "View/Edit Companies"])
+    
+    with tab1:
+        st.subheader("Add New Company")
+        company_name = st.text_input("Company Name")
+        industry = st.text_input("Industry")
+        required_skills = st.text_area("Required Skills")
+        min_cgpa = st.number_input("Minimum CGPA", min_value=0.0, max_value=10.0, step=0.1)
+        package_offered = st.text_input("Package Offered")
+        job_location = st.text_input("Job Location")
+        
+        if st.button("Add Company"):
+            if company_name and industry:
+                connection = get_database_connection()
+                if connection:
+                    try:
+                        with connection.cursor() as cursor:
+                            cursor.execute("""
+                                INSERT INTO companies (company_name, industry, required_skills, min_cgpa, package_offered, job_location)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (company_name, industry, required_skills, min_cgpa, package_offered, job_location))
+                        connection.commit()
+                        st.success("Company added successfully!")
+                    except Exception as e:
+                        st.error(f"Error adding company: {e}")
+                    finally:
+                        connection.close()
+            else:
+                st.warning("Please fill in required fields.")
+    
+    with tab2:
+        st.subheader("Existing Companies")
+        connection = get_database_connection()
+        if connection:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT * FROM companies")
+                    companies = cursor.fetchall()
+                
+                if companies:
+                    for company in companies:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"**{company[1]}** - {company[2]}")
+                            st.write(f"Min CGPA: {company[4]} | Package: {company[5]}")
+                        with col2:
+                            if st.button(f"Delete", key=f"del_company_{company[0]}"):
+                                try:
+                                    with connection.cursor() as cursor:
+                                        cursor.execute("DELETE FROM companies WHERE id = %s", (company[0],))
+                                    connection.commit()
+                                    st.success("Company deleted!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error deleting company: {e}")
+                        st.divider()
+                else:
+                    st.info("No companies found.")
+            finally:
+                connection.close()
