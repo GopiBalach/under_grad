@@ -17,6 +17,7 @@ import platform
 import base64
 import warnings
 import streamlit as st
+import base64
 
 # ==============================
 # Third-party libs
@@ -121,6 +122,13 @@ FIELD_TO_COURSES = {
 # ==============================
 # Utilities
 # ==============================
+
+def get_base64_image(image_path):
+    """Convert local image to base64 for CSS embedding."""
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    return None
 def generate_session_token():
     return secrets.token_hex(16)
 
@@ -597,41 +605,54 @@ def get_feedback_data() -> pd.DataFrame:
 # Pages
 # ==============================
 def auth_page():
-    # Parul theme styling for student login
-    st.markdown("""
+    image_path = "assets/WhatsApp Image 2025-11-08 at 21.28.59.jpeg"
+    if os.path.exists(image_path):
+        base64_image = get_base64_image(image_path)
+    else:
+        base64_image = ""
+
+    st.markdown(f"""
     <style>
-    .student-login-container {
-        background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+    .stApp {{
+        background-image: url("data:image/jpeg;base64,{base64_image}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    .stApp::before {{
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.4);
+        z-index: -1;
+    }}
+    .student-login-container {{
+        backdrop-filter: blur(8px);
+        background: rgba(255, 255, 255, 0.2);
         padding: 2rem;
         border-radius: 15px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-        margin: 2rem 0;
-    }
-    .student-header {
-        text-align: center;
-        color: white;
-        margin-bottom: 2rem;
-    }
-    .parul-student-logo {
-        text-align: center;
-        font-size: 3rem;
-        color: white;
-        margin-bottom: 1rem;
-    }
-    .tab-container {
-        background: rgba(255,255,255,0.1);
-        border-radius: 10px;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        margin-top: 2rem;
+    }}
     </style>
     """, unsafe_allow_html=True)
+
 
     if bcrypt is None:
         st.error("`bcrypt` is not installed. Please install it: `pip install bcrypt`")
         st.stop()
 
-    st.markdown('<div class="parul-student-logo">🎓</div>', unsafe_allow_html=True)
+    # Display student login image
+    student_image_path = "assets/WhatsApp Image 2025-11-08 at 21.28.59.jpeg"
+    # if os.path.exists(student_image_path):
+    #     col1, col2, col3 = st.columns([1, 2, 1])
+    #     with col2:
+    #         st.image(student_image_path, width=300, caption="Parul University Student Portal")
+    # else:
+    #     st.markdown('<div class="parul-student-logo">🎓</div>', unsafe_allow_html=True)
     st.markdown('<div class="student-header"><h1>👨‍🎓 Student Portal</h1><h3>Parul University</h3></div>', unsafe_allow_html=True)
 
     connection = get_database_connection()
@@ -898,75 +919,106 @@ def about_page():
     st.write("We value your privacy. Your resume data is used only for analysis. Admin dashboard aggregates anonymized analytics.")
 
 def admin_login():
-    # Parul theme styling
-    st.markdown("""
-    <style>
-    .login-container {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-        margin: 2rem 0;
-    }
-    .login-header {
-        text-align: center;
-        color: white;
-        margin-bottom: 2rem;
-    }
-    .parul-logo {
-        text-align: center;
-        font-size: 3rem;
-        color: #FF6B35;
-        margin-bottom: 1rem;
-    }
-    .stTextInput > div > div > input {
-        background-color: rgba(255,255,255,0.1);
-        border: 2px solid #FF6B35;
-        border-radius: 10px;
-        color: black;
-    }
-    .stButton > button {
-        background: linear-gradient(45deg, #FF6B35, #F7931E);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        padding: 0.5rem 2rem;
-        font-weight: bold;
-        width: 100%;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
+    # Convert local image to base64
+    bg_image = get_base64_image("assets/image.png")
+
+    # Add CSS with base64 image
+    if bg_image:
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpeg;base64,{bg_image}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }}
+        .stApp::before {{
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: -1;
+        }}
+        .login-container {{
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.15);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            margin: 2rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }}
+        .login-header {{
+            text-align: center;
+            color: white;
+            margin-bottom: 2rem;
+        }}
+        .login-header h1, .login-header h3 {{
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            color: white !important;
+        }}
+        .parul-logo {{
+            text-align: center;
+            font-size: 3rem;
+            color: #FF6B35;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }}
+        .stTextInput > div > div > input {{
+            background-color: rgba(255,255,255,0.2);
+            border: 2px solid #FF6B35;
+            border-radius: 10px;
+            color: white;
+        }}
+        .stTextInput > div > div > input::placeholder {{
+            color: rgba(255,255,255,0.7);
+        }}
+        .stButton > button {{
+            background: linear-gradient(45deg, #FF6B35, #F7931E);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 0.5rem 2rem;
+            font-weight: bold;
+            width: 100%;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+
+    # Header section
     st.markdown('<div class="parul-logo">🏛️</div>', unsafe_allow_html=True)
     st.markdown('<div class="login-header"><h1>🛡️ Admin Portal</h1><h3>Parul University</h3></div>', unsafe_allow_html=True)
-    
-    with st.container():
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.markdown('<div class="login-container">', unsafe_allow_html=True)
-            
-            username = st.text_input("👤 Admin Username", placeholder="Enter admin username")
-            password = st.text_input("🔒 Admin Password", type="password", placeholder="Enter admin password")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            if st.button("🚀 Login as Admin"):
-                admin_user = os.getenv('ADMIN_USERNAME', 'admin')
-                admin_pass = os.getenv('ADMIN_PASSWORD', 'Parul@1234')
-                if username == admin_user and password == admin_pass:
-                    st.session_state.admin_logged_in = True
-                    st.success("🎉 Admin logged in successfully!")
-                    st.rerun()
-                else:
-                    st.error("❌ Invalid admin credentials")
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown("""
-            <div style="text-align: center; margin-top: 1rem; color: #666;">
-                <small>🔐 Secure Admin Access | Parul University</small>
-            </div>
-            """, unsafe_allow_html=True)
+
+    # Login form container
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        username = st.text_input("👤 Admin Username", placeholder="Enter admin username")
+        password = st.text_input("🔒 Admin Password", type="password", placeholder="Enter admin password")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if st.button("🚀 Login as Admin"):
+            admin_user = os.getenv('ADMIN_USERNAME', 'admin')
+            admin_pass = os.getenv('ADMIN_PASSWORD', 'Parul@1234')
+            if username == admin_user and password == admin_pass:
+                st.session_state.admin_logged_in = True
+                st.success("🎉 Admin logged in successfully!")
+                st.rerun()
+            else:
+                st.error("❌ Invalid admin credentials")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("""
+        <div style="text-align: center; margin-top: 1rem; color: #ccc;">
+            <small>🔐 Secure Admin Access | Parul University</small>
+        </div>
+        """, unsafe_allow_html=True)
 
 def show_admin_dashboard():
     st.title("Admin Dashboard")
@@ -1591,10 +1643,10 @@ def main():
         st.markdown("""
         <style>
         .sidebar .sidebar-content {
-            background: linear-gradient(180deg, #FF6B35 0%, #F7931E 100%);
+            background: linear-gradient(180deg, #5AB9EA 0%, #F7931E 100%);
         }
         .stSidebar > div:first-child {
-            background: linear-gradient(180deg, #FF6B35 0%, #F7931E 100%);
+            background: linear-gradient(180deg, #5AB9EA 0%, #F7931E 100%);
         }
         .sidebar-title {
             color: white;
